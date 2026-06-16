@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const emptyState = document.getElementById('empty-state');
     const resetFiltersBtn = document.getElementById('reset-filters');
     const exportCsvBtn = document.getElementById('export-csv-btn');
+    const themeToggleBtn = document.getElementById('theme-toggle');
     
     // Modal Elements
     const tweetModal = document.getElementById('tweet-modal');
@@ -473,6 +474,33 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.removeChild(link);
         showToast('Exported CSV successfully!');
     }
+
+    // Theme Toggle Logic
+    const sunIcon = themeToggleBtn.querySelector('.sun-icon');
+    const moonIcon = themeToggleBtn.querySelector('.moon-icon');
+
+    // Initialize theme from localStorage
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+        sunIcon.classList.remove('hidden');
+        moonIcon.classList.add('hidden');
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+        document.body.classList.toggle('light-theme');
+        const isLight = document.body.classList.contains('light-theme');
+        
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        
+        if (isLight) {
+            sunIcon.classList.remove('hidden');
+            moonIcon.classList.add('hidden');
+        } else {
+            sunIcon.classList.add('hidden');
+            moonIcon.classList.remove('hidden');
+        }
+    });
 
     // Action events
     copyTweetBtn.addEventListener('click', copyTweetText);
