@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const skeletonLoader = document.getElementById('skeleton-loader');
     const emptyState = document.getElementById('empty-state');
     const resetFiltersBtn = document.getElementById('reset-filters');
+    const exportCsvBtn = document.getElementById('export-csv-btn');
     
     // Modal Elements
     const tweetModal = document.getElementById('tweet-modal');
@@ -161,6 +162,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="update-item-header">
                             <span class="type-tag ${typeClass}">${update.type}</span>
                             <div class="update-actions">
+                                <button class="btn-action copy-action" title="Copy to Clipboard">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                </button>
                                 <button class="btn-action tweet-action" title="Share on X" data-date="${entry.date}" data-type="${update.type}" data-link="${permalink}">
                                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                                         <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -195,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Add event listeners to the new Tweet buttons
-        document.querySelectorAll('.tweet-action').forEach((btn, index) => {
+        document.querySelectorAll('.tweet-action').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 const target = e.currentTarget;
                 const updateDate = target.getAttribute('data-date');
@@ -214,6 +221,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     text: cleanText,
                     link: entryLink
                 });
+            });
+        });
+
+        // Add event listeners to the new Copy buttons
+        document.querySelectorAll('.copy-action').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                const target = e.currentTarget;
+                const updateItem = target.closest('.update-item');
+                const updateBodyElement = updateItem.querySelector('.update-body');
+                const cleanText = updateBodyElement.textContent.trim();
+                
+                try {
+                    navigator.clipboard.writeText(cleanText);
+                    showToast('Copied update to clipboard!');
+                } catch (err) {
+                    showToast('Failed to copy text.');
+                }
             });
         });
     }
@@ -396,9 +420,64 @@ document.addEventListener('DOMContentLoaded', () => {
     // Live textarea hook
     tweetTextarea.addEventListener('input', updateCharCounter);
     
+    // CSV Export Logic
+    function exportToCsv() {
+        if (!allReleaseNotes.length) {
+            showToast('No release notes to export!');
+            return;
+        }
+
+        const filteredEntries = allReleaseNotes.map(entry => {
+            const filteredUpdates = entry.updates.filter(update => {
+                const typeMatches = activeFilter === 'all' || 
+                                    update.type.toLowerCase() === activeFilter.toLowerCase();
+                const textMatches = !searchQuery || 
+                                    update.type.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                    update.text.toLowerCase().includes(searchQuery.toLowerCase());
+                return typeMatches && textMatches;
+            });
+            return {
+                ...entry,
+                updates: filteredUpdates
+            };
+        }).filter(entry => entry.updates.length > 0);
+
+        if (!filteredEntries.length) {
+            showToast('No filtered release notes to export!');
+            return;
+        }
+
+        // Generate CSV content
+        let csvContent = '\uFEFFDate,Type,Description,Link\n'; // UTF-8 BOM
+        
+        filteredEntries.forEach(entry => {
+            const permalink = entry.link || '';
+            entry.updates.forEach(update => {
+                const dateVal = `"${entry.date.replace(/"/g, '""')}"`;
+                const typeVal = `"${update.type.replace(/"/g, '""')}"`;
+                const textVal = `"${update.text.replace(/"/g, '""')}"`;
+                const linkVal = `"${permalink.replace(/"/g, '""')}"`;
+                csvContent += `${dateVal},${typeVal},${textVal},${linkVal}\n`;
+            });
+        });
+
+        // Trigger download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `bigquery_release_notes_${activeFilter}_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('Exported CSV successfully!');
+    }
+
     // Action events
     copyTweetBtn.addEventListener('click', copyTweetText);
     postTweetBtn.addEventListener('click', postToTwitter);
+    exportCsvBtn.addEventListener('click', exportToCsv);
 
     // Initial load
     fetchReleaseNotes();
